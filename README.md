@@ -1,2 +1,1 @@
-# ze_scripts
-# ze_scripts
+Scripts variados de gereciamento de dados de ressonância magnética.

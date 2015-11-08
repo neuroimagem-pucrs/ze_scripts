@@ -1,0 +1,24 @@
+#!/bin/tcsh
+
+if ( -f "@ss_review_basic" ) then
+
+else
+	echo ""
+	echo "ERRO:"
+	echo "1) Você está em um diretório com dados processados?"
+	echo "2) Verifique se os dados foram processados corretamente."
+	echo "3) Deu merda. :("
+	echo ""
+	exit
+endif
+
+set subj = `pwd | grep -o '[A-Z]\{1,10\}[0-9]\{3\}'`
+
+afni									\
+-com "OPEN_WINDOW A.axialimage" 					\
+-com "OPEN_WINDOW A.sagittalimage" 					\
+-com "SWITCH_UNDERLAY anat_final.$subj+tlrc.HEAD" 			\
+-com "SWITCH_OVERLAY pb03.$subj.r01.volreg+tlrc.HEAD"			\
+-com "SET_SUBBRICKS A 0 0 0"		       				\
+-com "SET_THRESHNEW A 3480"
+

@@ -1,0 +1,31 @@
+#!/bin/sh
+re='^[0-9]+$'
+if [ "$1" == "-help" ]; then
+echo "#####################################################"
+echo "# Esse script cria uma pasta chamada COG[ID_PACIENTE] dentro do projeto NEUROCOG e move as imagens baixadas pelo Pixsuite para dentro dela."
+echo "# As imagens baixadas pelo Pixsuite ficam dentro do diretório do próprio programa"
+echo "# e se chama Volume [ID_CRIADO_PELO_PIXSUITE]."
+echo "# Exemplo de uso: mover-cog [ID_PACIENTE] [ID_CRIADO_PELO_PIXSUITE]"
+echo "## OBS 1: Os dois argumentos devem ser exclusivamente números!"
+echo "## OBS 2: O [ID_CRIADO_PELO_PIXSUITE] deve existir e ser conferido no próprio software"
+echo "## de acordo com o nome do paciente."
+echo "#####################################################"
+exit
+fi
+if [ -z $1 ] || [ -z $2 ]; then
+echo "ERRO: Faltam argumentos!"
+echo "-> Exemplo de uso: mover [ID_PACIENTE] [ID_CRIADO_PELO_PIXSUITE]"
+echo "-> Digite mover-cog -help para mais informações."
+exit 
+elif ! [[ $1$2 =~ $re ]]; then
+echo "ERRO: Os argumentos devem ser números!" 
+echo "-> Digite mover-cog -help para mais informações."  
+exit    
+elif [[ ! -d "/media/DATA/Pixeon/pixsuite/downloads/record/Volume $2" ]]; then
+echo "ERRO: A pasta [Volume $2] não existe!"  
+exit                 
+else
+mkdir -p /media/DATA/NEUROCOG2/COG$1
+mv "/media/DATA/Pixeon/pixsuite/downloads/record/Volume $2/" ~/DATA/NEUROCOG2/COG$1/dicom
+echo "Concluído."
+fi

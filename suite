@@ -1,0 +1,6 @@
+#!/bin/csh
+set pasta_atual=`pwd`
+cd /media/DATA/Pixeon/pixsuite
+./pixsuite.sh &
+cd ${pasta_atual}
+exit

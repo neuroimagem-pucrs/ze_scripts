@@ -1,0 +1,28 @@
+#!/usr/bin/python
+#coding: utf-8
+import argparse
+
+p = argparse.ArgumentParser(description="Gerador de Scanlog:")
+p.add_argument("nome", type=str, help="Nome do arquivo de texto. (Exemplo: scanlog protaia001.txt)")
+args = p.parse_args()
+
+# Abre o arquivo
+fo = open(args.nome, 'wb')
+fo.write("Nome: \n\
+Sexo: \n\
+Idade: \n\
+Data: \n\
+Projeto: \n\n\
+___________________________________________________________________\n\
+Ordem do exame:\n(Dependendo do seu estudo ou sujeito, esta ordem pode ser diferente)\n\n\
+01 - \n02 - \n03 - \n04 - \n05 - \n06 - \n07 - \n08 - \n\
+09 - \n10 - \n11 - \n12 - \n13 - \n14 - \n15 - \n16 - \n\
+17 - \n18 - \n19 - \n20 - \n\n\
+Observações: ");
+
+# Fecha o arquivo
+fo.close()
+
+import subprocess
+subprocess.call(['vim','-c start', args.nome])
+

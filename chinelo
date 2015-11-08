@@ -1,0 +1,6 @@
+#!/bin/sh
+for x in `ls *` 
+do
+	echo "removed ‘$PWD/${x}’" 
+	sleep 0.05
+done

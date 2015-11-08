@@ -1,0 +1,317 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+import os
+import glob
+import subprocess
+import sys
+import argparse
+
+##########################################################################
+#Já que não dá pra usar ctrl-c pra parar o script isso simula o getch do C
+##########################################################################
+class _Getch:
+    """Gets a single character from standard input.  Does not echo to the
+screen."""
+    def __init__(self):
+        try:
+            self.impl = _GetchWindows()
+        except ImportError:
+            self.impl = _GetchUnix()
+
+    def __call__(self): return self.impl()
+    
+class _GetchUnix:
+    def __init__(self):
+        import tty, sys
+
+    def __call__(self):
+        import sys, tty, termios
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
+        
+class _GetchWindows:
+    def __init__(self):
+        import msvcrt
+
+    def __call__(self):
+        import msvcrt
+        return msvcrt.getch()
+        
+#############################
+#Cria as opções de argumentos
+#############################
+parser = argparse.ArgumentParser(description='Esse script auxilia no controle de qualidade ' \
+	'dos projetos facilitando o processo, principalmente quando o controle é feito para múltiplos sujeitos.')
+parser.add_argument('-p', '--project', help='Nome do projeto (completo ou abreviado). Esse argumento é obrigatório.', \
+	dest='proj', action='store', required=True)
+parser.add_argument('-v', '--visit', help='Especifica o número do diretório visit. Se não for especificado ' \
+	'por default, será visit1. Utilize -v 0 caso não haja nenhum diretório visit no projeto.', \
+	dest='vis', action='store', type=int, default=1, metavar='[1]')
+parser.add_argument('-s','--subject', help='Especifica o(s) sujeito(s) para realizar o controle de qualidade. ' \
+	'Se não for especificado, por default, todos serão usados.', \
+	dest='subj', nargs='*',default=[])
+parser.add_argument('-t', '--task', help='Especifica a(s) tarefa(s) para realizar o controle de qualidade. ' \
+	'Se não for especificado, por default, todas serão usadas.', \
+	dest='task', nargs='*',default=[])
+parser.add_argument('-r', '--review', help='Especifica o tipo de controle de qualidade entre as opções ' \
+	'[basic/driver/commands]. Se não for especificado, por default, será usado o [basic].', \
+	choices=[ 'basic', 'driver', 'commands' ], dest='rvw', default='basic')
+parser.add_argument('-a', '--analise', help='Especifica o tipo de análise ' \
+	'[corregistro/ativacao]. Se não for especificado, nenhum é feito.', \
+	choices=[ 'corregistro', 'ativacao' ], dest='ana')
+
+args = parser.parse_args()
+
+##############################
+#Lista de variáveis aceitáveis
+##############################
+if args.proj == 'SCH' or args.proj == 'SCHOOLS':
+	args.proj = 'SCHOOLS'
+	sigla = 'SCH'
+	
+if args.proj == 'COC' or args.proj == 'PFERREIRA':
+	args.proj = 'PFERREIRA'
+	sigla = 'COC'
+	
+if args.proj == 'OB' or args.proj == 'OBESIDADE':
+	args.proj = 'OBESIDADE'
+	sigla = 'OB'
+
+if args.proj == 'AMBAC':
+	sigla = 'AMBAC'
+	
+if args.proj == 'RWM' or args.proj == 'Rohde_WM':
+	args.proj = 'Rohde_WM'
+	sigla = 'RWM'
+
+if args.proj == 'CAT' or args.proj == 'MCRUCIUS':
+	args.proj = 'MCRUCIUS'
+	sigla = 'CAT'
+
+if args.rvw == 'basic':
+	args.rvw = 'dados'
+elif args.rvw == 'driver':
+	args.rvw = 'tcsh @ss_review_driver'
+else:
+	args.rvw = 'dados-full'
+
+if os.path.isdir("/media/DATA/%s" % args.proj): # Verifica se o projeto existe em DATA
+	print ('\nAbrindo '+args.proj+'...')
+else:
+	print "\n-> Erro: O projeto especificado não existe.\n"
+	exit(-1)
+
+#########################################
+#Verifica os argumentos e roda os reviews
+#########################################
+if not args.subj:
+	if args.vis == 0:
+		tasks = sorted(glob.glob('/media/DATA/'+args.proj+'/'+sigla+'*''/PROC''*'))
+		if not tasks:
+			print '\nErro -> '+args.proj+' deve conter um diretório visit ou não deve possuir\ndados processados. Verifique.\n'
+			exit(-1)
+		else:
+			for task_paths in tasks:
+				print task_paths
+	else:
+		subjs_paths = sorted(glob.glob('/media/DATA/'+args.proj+'/'+sigla+'*''/visit%d' % +args.vis))
+		if not subjs_paths:
+			print '\nErro -> '+args.proj+' não possui o diretório visit especificado.'
+			print 'OBS: Se não há diretório visit para '+args.proj+', considere usar -v 0.\n'
+			exit(-1)
+		else:
+			for subj_path in subjs_paths:
+##################################################################################################################
+				if args.ana:
+					for task in args.task:
+						tasks = sorted(glob.glob(subj_path+'/PROC.'+task+'*'))
+						if not tasks:
+							print ('\nErro -> Não existe PROC.'+task+' em '+subj_path+'\n')
+					for task in args.task:
+						tasks = sorted(glob.glob(subj_path+'/PROC.'+task+'*'))
+						for task_paths in tasks:
+							print ('\nAbrindo review em '+task_paths)
+							os.chdir(task_paths)
+  							subprocess.call(args.ana,shell=True)
+  							print "Pressione uma tecla para continuar ou 'q' para sair."
+  							getch = _Getch()
+  							if getch.impl() in ('q', 'Q'):
+  								sys.exit(0)
+  							else:
+  								pass
+##################################################################################################################
+				if not args.task:
+					tasks = sorted(glob.glob(subj_path+'/PROC''*'))
+					if not tasks:
+						print ('\nErro -> Não há dados processados em' +subj_path+'\n')
+						exit(-1)
+					else:
+						for task_paths in tasks:
+							print ('\nAbrindo review em '+task_paths)
+							os.chdir(task_paths)
+  							subprocess.call(args.rvw, shell=True)
+  							print "Pressione uma tecla para continuar ou 'q' para sair."
+  							getch = _Getch()
+  							if getch.impl() in ('q', 'Q'):
+								sys.exit(0)
+							else:
+								pass							
+				else:
+					for task in args.task:
+						tasks = sorted(glob.glob(subj_path+'/PROC.'+task+'*'))
+						if not tasks:
+							print ('\nErro -> Não existe PROC.'+task+' em '+subj_path+'\n')
+					for task in args.task:
+						tasks = sorted(glob.glob(subj_path+'/PROC.'+task+'*'))
+						for task_paths in tasks:
+							print ('\nAbrindo review em '+task_paths)
+							os.chdir(task_paths)
+  							subprocess.call(args.rvw, shell=True)
+  							print "Pressione uma tecla para continuar ou 'q' para sair."
+  							getch = _Getch()
+  							if getch.impl() in ('q', 'Q'):
+  								sys.exit(0)
+  							else:
+  								pass
+elif args.subj:
+	for subjs in args.subj:
+		print 'For loop'
+		path = glob.glob('/media/DATA/'+args.proj+'/'+sigla+'*'+subjs)
+		caminho1 = ''.join(path)
+		if not os.path.isdir(caminho1):
+			print ('\nErro -> '+sigla+'*'+subjs+' não existe! Verifique.\n')
+			exit(-1)
+		else:
+			if args.vis == 0:
+				caminho2 = glob.glob('/media/DATA/'+args.proj+'/'+sigla+'*'+subjs)
+				subjs_paths = ''.join(caminho2)
+				if not os.path.isdir(subjs_paths):
+					print '\nErro -> '+sigla+'*'+subjs+' não possui o diretório visit especificado.'
+					print 'OBS: Se não há diretório visit para '+sigla+'*'+subjs+', considere usar -v 0.\n'
+					exit(-1)
+				else:
+					tasks = sorted(glob.glob('/media/DATA/'+args.proj+'/'+sigla+'*'+subjs+'/PROC''*'))
+					if not tasks:
+						print '\nErro -> '+subjs+' deve conter um diretório visit. Verifique.\n'
+					else:
+						for tasks_path in tasks:
+							print tasks_path
+							if args.ana:
+								for task in args.task:
+									tasks = sorted(glob.glob(subjs_paths+'/PROC.'+task+'*'))
+									if not tasks:
+										print ('\nErro -> Não existe '+task+ ' em '+subjs+'\n')
+										exit(-1)
+								for task in args.task:
+									tasks = sorted(glob.glob(subjs_paths+'/PROC.'+task+'*'))
+									for tasks_path in tasks:
+										print ('\nAbrindo '+task+' em '+subjs+'...')
+										os.chdir(tasks_path)
+		  								subprocess.call(args.ana,shell=True)
+		  								print "Pressione uma tecla para continuar ou 'q' para sair."
+		  								getch = _Getch()
+		  								if getch.impl() in ('q', 'Q'):
+		  									sys.exit(0)
+		  								else:
+		  									pass
+							if not args.task:
+								tasks = sorted(glob.glob(subjs_paths+'/PROC''*'))
+								if not tasks:
+									print ('\nErro -> Não há dados processados em '+subjs+'\n')
+								else:
+									for tasks_path in tasks:
+										print ('\nAbrindo '+tasks_path+' em '+subjs+'...')
+										os.chdir(tasks_path)
+										subprocess.call(args.rvw, shell=True)
+		  								print "Pressione uma tecla para continuar ou 'q' para sair."
+		  								getch = _Getch()
+		  								if getch.impl() in ('q', 'Q'):
+		  									sys.exit(0)
+		  								else:
+		  									pass
+							else:
+								for task in args.task:
+									tasks = sorted(glob.glob(subjs_paths+'/PROC.'+task+'*'))
+									if not tasks:
+										print ('\nErro -> Não existe '+task+ ' em '+subjs+'\n')
+										exit(-1)
+								for task in args.task:
+									tasks = sorted(glob.glob(subjs_paths+'/PROC.'+task+'*'))
+									for tasks_path in tasks:
+										print ('\nAbrindo '+task+' em '+subjs+'...')
+										os.chdir(tasks_path)
+		  								subprocess.call(args.rvw, shell=True)
+		  								print "Pressione uma tecla para continuar ou 'q' para sair."
+		  								getch = _Getch()
+		  								if getch.impl() in ('q', 'Q'):
+		  									sys.exit(0)
+		  								else:
+		  									pass
+			else:
+				caminho2 = glob.glob('/media/DATA/'+args.proj+'/'+sigla+'*'+subjs+'/visit%d' % +args.vis)
+				subjs_paths = ''.join(caminho2)
+				if not os.path.isdir(subjs_paths):
+					print '\nErro -> '+sigla+'*'+subjs+' não possui o diretório visit especificado.'
+					print 'OBS: Se não há diretório visit para '+sigla+'*'+subjs+', considere usar -v 0.\n'
+					exit(-1)
+				else:
+##############################################################################################################
+					if args.ana:
+						for task in args.task:
+							tasks = sorted(glob.glob(subjs_paths+'/PROC.'+task+'*'))
+							if not tasks:
+								print ('\nErro -> Não existe '+task+ ' em '+subjs+'\n')
+								exit(-1)
+							for task in args.task:
+								tasks = sorted(glob.glob(subj_path+'/PROC.'+task+'*'))
+								for tasks_path in tasks:
+									print ('\nAbrindo '+task+' em '+subjs+'...')
+									os.chdir(tasks_path)
+	  								subprocess.call(args.ana,shell=True)
+	  								print "Pressione uma tecla para continuar ou 'q' para sair."
+	  								getch = _Getch()
+	  								if getch.impl() in ('q', 'Q'):
+	  									sys.exit(0)
+	  								else:
+	  									pass
+############################################################################################################## 
+					if not args.task:
+						tasks = sorted(glob.glob(subjs_paths+'/PROC''*'))
+						if not tasks:
+							print ('\nErro -> Não há dados processados em '+subjs+'\n')
+						else:
+							for tasks_path in tasks:
+								print ('\nAbrindo '+tasks_path+' em '+subjs+'...')
+								os.chdir(tasks_path)
+								subprocess.call(args.rvw, shell=True)
+  								print "Pressione uma tecla para continuar ou 'q' para sair."
+  								getch = _Getch()
+  								if getch.impl() in ('q', 'Q'):
+  									sys.exit(0)
+  								else:
+  									pass
+					else:
+						for task in args.task:
+							tasks = sorted(glob.glob(subjs_paths+'/PROC.'+task+'*'))
+							if not tasks:
+								print ('\nErro -> Não existe '+task+ ' em '+subjs+'\n')
+								exit(-1)
+						for task in args.task:
+							tasks = sorted(glob.glob(subjs_paths+'/PROC.'+task+'*'))
+							for tasks_path in tasks:
+								print ('\nAbrindo '+task+' em '+subjs+'...')
+								os.chdir(tasks_path)
+  								subprocess.call(args.rvw, shell=True)
+  								print "Pressione uma tecla para continuar ou 'q' para sair."
+  								getch = _Getch()
+  								if getch.impl() in ('q', 'Q'):
+  									sys.exit(0)
+  								else:
+  									pass

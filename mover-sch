@@ -1,0 +1,44 @@
+#!/bin/sh
+re='^[0-9]+$'
+x=$1
+if [ "$1" == "-help" ]; then
+echo "##################################################################"
+echo "# Esse script cria uma pasta definida pelo usuário através"
+echo "# do seguinte modelo: Se o paciente é [B]om leitor o nome"
+echo "# da pasta deverá ser: B seguido da numeração (EX: B001)."
+echo "# As imagens do Pixsuite são automaticamente movidas para"
+echo "# dentro do diretório recém criado no projeto SCHOOLS."
+echo "# As imagens baixadas pelo Pixsuite ficam dentro do diretório"
+echo "# do próprio programa e se chama Volume [ID_CRIADO_PELO_PIXSUITE]."
+echo "# Exemplo de uso: mover-sch [BXXX] [ID_CRIADO_PELO_PIXSUITE]" 
+echo "# Exemplo de uso: mover-sch [MXXX] [ID_CRIADO_PELO_PIXSUITE]"
+echo "## OBS 1: X deve ser exclusivamente número!"
+echo "## OBS 2: É obrigatório iniciar o nome do diretório do" 
+echo "## paciente com M ou B!"
+echo "## OBS 3: O [ID_CRIADO_PELO_PIXSUITE] deve existir e ser conferido"
+echo "# no próprio software de acordo com o nome do paciente."
+echo "##################################################################"
+exit
+fi
+if [ -z $1 ] || [ -z $2 ]; then
+echo "ERRO: Faltam argumentos!"
+echo "-> Exemplo de uso: mover [BXXX] [ID_CRIADO_PELO_PIXSUITE]"
+echo "-> Digite mover-sch -help para mais informações."
+exit 
+elif ! [[ $2 =~ $re ]]; then
+echo "ERRO: O [ID_CRIADO_PELO_PIXSUITE] deve conter apenas números!" 
+echo "-> Digite mover-sch -help para mais informações."  
+exit    
+elif [[ ! -d "/media/DATA/Pixeon/pixsuite/downloads/record/Volume $2" ]]; then
+echo "ERRO: A pasta [Volume $2] não existe!"  
+exit
+elif [[ "$1" != \B* ]] && [[ "$1" != \M* ]] && [[ "$1" != \R* ]]; then
+echo "ERRO: É preciso especificar se o paciente é [B]om leitor, [M]al leitor ou [R]egular." 
+echo "-> Digite mover-sch -help para mais informações."
+exit          
+else
+mkdir -p ~/DATA/SCHOOLS/SCH$1/visit1
+mv "/media/DATA/Pixeon/pixsuite/downloads/record/Volume $2/" ~/DATA/SCHOOLS/SCH$1/visit1/dicom
+
+echo "Concluído."
+fi

@@ -1,0 +1,78 @@
+#!/bin/tcsh
+
+if ( -f "@ss_review_basic" ) then
+
+else
+	echo ""
+	echo "ERRO:"
+	echo "1) Você está em um diretório com dados processados?"
+	echo "2) Verifique se os dados foram processados corretamente."
+	echo "3) Deu merda. :("
+	echo ""
+	exit
+endif
+
+# ------------------------------------------------------------
+# try to avoid any oblique warnings throughout script
+setenv AFNI_NO_OBLIQUE_WARNING YES
+
+# ----------------------------------------------------------------------
+set task        = `pwd | awk -F/ '{print $(NF-PROC)}'`
+set rst         = "RST"
+# main variables regarding this single subject analysis
+set subj             = `pwd | grep -o '[A-Z]\{1,10\}[0-9]\{3\}'`
+set was_censored     = `awk '/set was_censored/{print $NF}' @ss_review_basic`
+set outlier_dset     = outcount_rall.1D
+set enorm_dset       = `ls motion_*_enorm.1D`
+set censor_dset	     = `awk '/set censor_dset/{print $NF}' @ss_review_basic`
+set mot_limit        = `awk '/set mot_limit/{print $NF}' @ss_review_basic`
+set out_limit        = `awk '/set out_limit/{print $NF}' @ss_review_basic`
+# ------------------------------------------------------------
+
+# Is RST?
+set isrst = `echo $task|awk '{if (match($0,/'"${rst}"'/)){print "yes"}}'`
+
+if ( !($isrst == yes) ) then
+
+	# report motion limit, average motion and number of TRs censored
+	echo ""
+	echo "Dados para preencher a tabela de TASK no ${subj}:"
+	echo "-------------------------------------------------"
+	set mcount = `1deval -a $enorm_dset -expr "step(a-$mot_limit)"      \
+		                | awk '$1 != 0 {print}' | wc -l`
+	echo "$mcount		-> num TRs above mot limit"
+
+	set mmean = `3dTstat -prefix - -mean $enorm_dset\' | & tail -n 1`
+	echo "$mmean	-> average motion (per TR) "
+
+
+	if ( $was_censored ) then
+	    set ntr_censor = `cat $censor_dset | grep 0 | wc -l`
+	    echo "$ntr_censor		-> TRs censored"
+	endif
+	echo "				~Sugestão da rerodrigues"
+	echo ""
+
+else
+
+	echo ""
+	echo "Dados para preencher a tabela de RST no ${subj}:"
+	echo "-------------------------------------------------"
+	set mmean = `3dTstat -prefix - -mean $outlier_dset\' | & tail -n 1`
+	echo "$mmean	-> average outlier frac"
+	set mcount = `1deval -a $outlier_dset -expr "step(a-$out_limit)"      \
+		                | awk '$1 != 0 {print}' | wc -l`
+	echo "$mcount		-> num TRs above out limit"
+	set mmean = `3dTstat -prefix - -mean $enorm_dset\' | & tail -n 1`
+	echo "$mmean	-> average motion (per TR) "
+	set mcount = `1deval -a $enorm_dset -expr "step(a-$mot_limit)"      \
+		                | awk '$1 != 0 {print}' | wc -l`
+	echo "$mcount		-> num TRs above mot limit"
+	if ( $was_censored ) then
+    	set ntr_censor = `cat $censor_dset | grep 0 | wc -l`
+    	echo "$ntr_censor		-> TRs censored"
+    endif
+    echo ""
+	echo "				~Sugestão da rerodrigues"
+	echo ""
+endif

@@ -1,0 +1,43 @@
+#!/bin/tcsh
+
+
+if ( -f "@ss_review_basic" ) then
+
+else
+	echo ""
+	echo "ERRO:"
+	echo "1) Você está em um diretório com dados processados?"
+	echo "2) Verifique se os dados foram processados corretamente."
+	echo "3) Deu merda. :("
+	echo ""
+	exit
+endif
+
+# Is RST?
+set task        = `pwd | awk -F/ '{print $(NF-PROC)}'`
+set rst         = "RST"
+set isrst       = `echo $task|awk '{if (match($0,/'"${rst}"'/)){print "yes"}}'`
+if ( $isrst == yes ) then
+	afni anat_final.SCHB001+tlrc.HEAD pb03.SCHB001.r01.volreg+tlrc.HEAD &
+	exit
+else
+
+	set subj = `pwd | grep -o '[A-Z]\{1,10\}[0-9]\{3\}'`
+	set pp = ( `3dBrickStat -slow -percentile 90 1 90 \
+		    -mask full_mask.$subj+tlrc stats.$subj+tlrc"[0]"` )
+	set thresh = $pp[2]
+	echo -- thresholding F-stat at $thresh
+	# locate peak coords of biggest masked cluster and jump there
+	3dcalc -a stats.$subj+tlrc"[0]" -b full_mask.$subj+tlrc -expr "a*b" \
+	       -overwrite -prefix .tmp.F
+	set maxcoords = ( `3dclust -1thresh $thresh -dxyz=1 1 2 .tmp.F+tlrc \
+	       | & awk '/^ / {print $14, $15, $16}' | head -n 1` )
+	echo -- jumping to max coords: $maxcoords
+	afni -com "OPEN_WINDOW A.axialimage"     \
+	     -com "OPEN_WINDOW A.sagittalimage"  \
+	     -com "SWITCH_UNDERLAY anat_final.$subj" \
+	     -com "SWITCH_OVERLAY stats.$subj"   \
+	     -com "SET_SUBBRICKS A 0 0 0"        \
+	     -com "SET_THRESHNEW A $thresh"      \
+	     -com "SET_DICOM_XYZ A $maxcoords"
+endif
